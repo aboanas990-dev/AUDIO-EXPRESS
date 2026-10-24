@@ -708,6 +708,7 @@ audio { filter: invert(.92) hue-rotate(180deg); border-radius: 999px; }
           <select id="vc-space"><option value="coqui/xtts">XTTS v2: العربية والإنجليزية و15 لغة</option><option value="mrfakename/E2-F5-TTS">F5-TTS: الإنجليزية بجودة عالية</option><option value="custom">مساحة أخرى…</option></select></div>
         <div class="field" id="vc-custom-f" hidden><label for="vc-custom">اسم المساحة</label><input id="vc-custom" dir="ltr" placeholder="user/space-name"></div>
         <div class="field"><label for="vc-token">مفتاح Hugging Face (اختياري، لحصة استخدام أكبر)</label><input id="vc-token" type="password" dir="ltr" placeholder="hf_..." autocomplete="off"></div>
+        <div class="field"><label><input type="checkbox" id="vc-remember"> تذكّر المفتاح على هذا الجهاز (يُحفظ في المتصفح)</label></div>
         <p class="muted small">المفتاح يُحفظ في متصفحك ويُرسل إلى Hugging Face فقط. يمكنك إنشاء مفتاح مجاني من إعدادات حسابك هناك.</p>
       </details>
     </div>
@@ -1477,7 +1478,10 @@ const I18N = {
 "أضف مساراً واحداً على الأقل": "Add at least one track",
 "لا توجد مسارات": "No tracks",
 "جارٍ التصدير…": "Exporting…",
-"المكساج": "Mix"
+"المكساج": "Mix",
+"سيُرسل الصوت الذي اخترته إلى خدمة Hugging Face السحابية العامة «{0}» لمعالجته هناك. لا ترسل تسجيلًا لا تملكه أو فيه بيانات حساسة. هل تريد المتابعة؟": "Your selected audio will be sent to the public Hugging Face cloud service “{0}” for processing. Do not send recordings you don't own or that contain sensitive data. Continue?",
+"أُلغي الإرسال إلى الخدمة السحابية": "Sending to the cloud service was cancelled",
+"تذكّر المفتاح على هذا الجهاز (يُحفظ في المتصفح)": "Remember the key on this device (stored in the browser)"
 };
 const LANG = (() => { try { return localStorage.getItem("lang"); } catch { return null; } })() === "ar" ? "ar" : "en";
 window.__miss = new Set();
@@ -1485,6 +1489,15 @@ function T(k, ...a) {
   let s = k;
   if (LANG !== "ar") { if (k in I18N) s = I18N[k]; else window.__miss.add(k); }
   return a.length ? s.replace(/\{(\d+)\}/g, (m, i) => (i < a.length ? a[i] : m)) : s;
+}
+/* رابط ملف مؤقت واحد لكل مكان: يُحرَّر القديم قبل إنشاء الجديد حتى لا تتراكم الملفات في الذاكرة */
+const __urls = {};
+function slotURL(key, blob) { if (__urls[key]) URL.revokeObjectURL(__urls[key]); return (__urls[key] = URL.createObjectURL(blob)); }
+/* موافقة واحدة في كل جلسة قبل إرسال صوت المستخدم إلى خدمة سحابية خارجية */
+let __cloudOk = false;
+function cloudConsent(service) {
+  if (!__cloudOk) __cloudOk = confirm(T("سيُرسل الصوت الذي اخترته إلى خدمة Hugging Face السحابية العامة «{0}» لمعالجته هناك. لا ترسل تسجيلًا لا تملكه أو فيه بيانات حساسة. هل تريد المتابعة؟", service));
+  if (!__cloudOk) throw new Error(T("أُلغي الإرسال إلى الخدمة السحابية"));
 }
 (() => {
   const html = document.documentElement;
@@ -2665,7 +2678,7 @@ const TTS = (() => {
 
   function showResult(b) {
     buffer = b; blob = encodeWAV(b);
-    const url = URL.createObjectURL(blob);
+    const url = slotURL("tts", blob);
     $("#tts-audio").src = url; $("#tts-dl").href = url; $("#tts-dl").download = "speech.wav";
     $("#tts-result").hidden = false;
   }
@@ -2787,7 +2800,7 @@ const STT = (() => {
   async function transcribe(blob, name = "audio.webm") {
     lastBlob = blob;
     $("#stt-to-trim").disabled = false;
-    const a = $("#stt-audio"); a.src = URL.createObjectURL(blob); a.hidden = false;
+    const a = $("#stt-audio"); a.src = slotURL("stt", blob); a.hidden = false;
     status.innerHTML = T("<span class=\"spin\"></span> جارٍ تجهيز Whisper…");
     try {
       const { audio, duration } = await to16k(blob);
@@ -3846,7 +3859,7 @@ const VoiceLab = (() => {
   function setResult(b, title) {
     result = b;
     $("#vl-res-title").textContent = title;
-    $("#vl-audio").src = URL.createObjectURL(encodeWAV(b));
+    $("#vl-audio").src = slotURL("vl", encodeWAV(b));
     $("#vl-result").hidden = false;
     $("#vl-result").scrollIntoView({ behavior: "smooth", block: "nearest" });
     $("#vl-audio").play().catch(() => {});
@@ -3910,7 +3923,7 @@ const VoiceLab = (() => {
       const mk = (txt, title, fn) => Object.assign(document.createElement("button"), { className: "icon", textContent: txt, title, onclick: fn });
       let au = null;
       row.append(
-        mk("▶", T("سماع العينة"), () => { if (au && !au.paused) return au.pause(); au = new Audio(URL.createObjectURL(v.sample)); au.play(); }),
+        mk("▶", T("سماع العينة"), () => { if (au && !au.paused) return au.pause(); au = new Audio(slotURL("sample", v.sample)); au.play(); }),
         mk("⬇", T("تصدير الصوت (لنقله إلى جهاز آخر)"), () => exportVoice(v)),
         mk("🗑", T("حذف"), async () => { if (!confirm(T("حذف الصوت «{0}»؟", v.name))) return; await VStore.del(v.id); refresh(); }),
       );
@@ -3987,6 +4000,7 @@ const VoiceLab = (() => {
   async function cloudClone(v, text, onStatus) {
     const sp = space();
     if (!sp) throw new Error(T("اكتب اسم المساحة في إعدادات الخدمة السحابية"));
+    cloudConsent(sp);
     const g = await import(GRADIO).catch(() => { throw new Error(T("تعذّر تحميل مكتبة الاتصال بالخدمة السحابية. تحقّق من الإنترنت")); });
     const token = $("#vc-token").value.trim();
     onStatus(T("الاتصال بالخدمة السحابية…"));
@@ -4019,8 +4033,9 @@ const VoiceLab = (() => {
   }
   modeNote();
   $("#vc-space").onchange = () => ($("#vc-custom-f").hidden = $("#vc-space").value !== "custom");
-  try { $("#vc-token").value = localStorage.getItem("hf_token") || ""; } catch {}
-  $("#vc-token").onchange = () => { try { localStorage.setItem("hf_token", $("#vc-token").value.trim()); } catch {} };
+  try { const t = localStorage.getItem("hf_token"); if (t) { $("#vc-token").value = t; $("#vc-remember").checked = true; } } catch {}
+  const saveToken = () => { try { if ($("#vc-remember").checked && $("#vc-token").value.trim()) localStorage.setItem("hf_token", $("#vc-token").value.trim()); else localStorage.removeItem("hf_token"); } catch {} };
+  $("#vc-token").onchange = saveToken; $("#vc-remember").onchange = saveToken;
   $("#vc-go").onclick = async (e) => {
     const v = voices.find((x) => x.id === $("#vc-voice").value), text = $("#vc-text").value.trim();
     if (!v) return toast(T("أضف صوتاً إلى مكتبتك أولاً (سجّل عينة أو ارفعها)"), true);
@@ -4134,6 +4149,7 @@ const Separator = (() => {
   async function cloudSeparate(onStatus) {
     const sp = $("#sep-space").value.trim();
     if (!sp) throw new Error(T("اكتب اسم مساحة الفصل في الإعدادات"));
+    cloudConsent(sp);
     const g = await import("https://cdn.jsdelivr.net/npm/@gradio/client@1.8.0/dist/index.js").catch(() => { throw new Error(T("تعذّر تحميل مكتبة الاتصال بالخدمة السحابية. تحقّق من الإنترنت")); });
     const token = $("#vc-token").value.trim();
     onStatus(T("الاتصال بالخدمة…"));
