@@ -594,15 +594,10 @@ audio { filter: invert(.92) hue-rotate(180deg); border-radius: 999px; }
       <span class="muted small">يمكنك اختيار عدة مقاطع معاً، أو سحبها إلى هنا</span>
     </div>
     <div class="field">
-      <label for="x-url">أو الصق رابطاً (يوتيوب، تيك توك، إكس، إنستغرام، أو رابط مباشر لملف فيديو)</label>
+      <label for="x-url">أو الصق رابطاً مباشراً لملف فيديو أو صوت تملكه (ينتهي بـ mp4 أو mp3 ونحوهما)</label>
       <div class="row x-url-row"><input id="x-url" dir="ltr" placeholder="https://..." inputmode="url"><button class="btn primary" id="x-go">⬇️ استخراج</button></div>
     </div>
-    <details id="x-set"><summary class="small">إعدادات روابط المواقع (يوتيوب وغيره)</summary>
-      <p class="muted small">الروابط المباشرة لملفات الفيديو تعمل بدون إعداد. أما يوتيوب وأمثاله فلا يسمحون للمتصفح بتنزيل الصوت مباشرة، فتحتاج خدمة تنزيل متوافقة مع cobalt. يمكنك تشغيلها مجاناً على جهازك أو خادمك، أو استعمال خدمة لديك مفتاحها.</p>
-      <div class="field"><label for="x-api">عنوان خدمة التنزيل</label><input id="x-api" dir="ltr" placeholder="http://localhost:9000"></div>
-      <div class="field"><label for="x-key">مفتاح الخدمة (إن وُجد)</label><input id="x-key" type="password" dir="ltr" autocomplete="off"></div>
-    </details>
-    <p class="muted small">نزّل فقط ما تملك حقه أو ما يسمح صاحبه بتنزيله.</p>
+    <p class="muted small">لا يدعم البرنامج التنزيل من يوتيوب أو منصات التواصل التزاماً بشروطها وحقوق النشر. نزّل فقط ما تملك حقه.</p>
     <div id="x-list" class="clips"></div>
   </div>
   <div class="card" id="batch">
@@ -683,6 +678,7 @@ audio { filter: invert(.92) hue-rotate(180deg); border-radius: 999px; }
       <h2>مكتبة أصواتي (بصمة الصوت)</h2>
       <p class="muted small">سجّل أو ارفع عينة من 10 إلى 30 ثانية لشخص واحد يتكلم بوضوح، بدون موسيقى. تُحفظ بصمة الصوت على جهازك فقط.</p>
       <div class="field"><label for="vl-name">اسم الصوت</label><input id="vl-name" placeholder="مثلاً: صوتي"></div>
+      <div class="field"><label><input type="checkbox" id="vl-consent"> أقرّ بأن هذا صوتي، أو أن لدي إذناً صريحاً من صاحبه باستنساخه. لا أستخدمه لانتحال شخصية أحد.</label></div>
       <div class="row">
         <button class="btn primary" id="vl-rec">🎤 تسجيل عينة</button>
         <label class="btn"><input type="file" id="vl-file" accept="audio/*,video/*" hidden>📁 رفع عينة</label>
@@ -1002,6 +998,11 @@ const I18N = {
 "استخراج الصوت من فيديو أو رابط": "Extract audio from a video or link",
 "حوّل أي فيديو إلى ملف صوتي MP3 بالحجم المختار أعلى الصفحة.": "Turn any video into an MP3 audio file at the size chosen at the top of the page.",
 "🎬 اختيار فيديو من الجهاز": "🎬 Choose video from device",
+"أو الصق رابطاً مباشراً لملف فيديو أو صوت تملكه (ينتهي بـ mp4 أو mp3 ونحوهما)": "Or paste a direct link to a video or audio file you own (ending in mp4, mp3, etc.)",
+"لا يدعم البرنامج التنزيل من يوتيوب أو منصات التواصل التزاماً بشروطها وحقوق النشر. نزّل فقط ما تملك حقه.": "Downloading from YouTube or social platforms is not supported, out of respect for their terms and copyright. Only download what you have the right to.",
+"يدعم البرنامج الروابط المباشرة للملفات فقط، لا صفحات يوتيوب أو المنصات. نزّل الملف الذي تملكه ثم اختره من الزر أعلاه": "Only direct file links are supported, not YouTube or platform pages. Download a file you own, then choose it with the button above",
+"أقرّ بأن هذا صوتي، أو أن لدي إذناً صريحاً من صاحبه باستنساخه. لا أستخدمه لانتحال شخصية أحد.": "I confirm this is my voice, or I have explicit permission from its owner to clone it. I will not use it to impersonate anyone.",
+"أكّد أولاً أن الصوت لك أو أن لديك إذن صاحبه": "First confirm the voice is yours or you have its owner's permission",
 "يمكنك اختيار عدة مقاطع معاً، أو سحبها إلى هنا": "You can choose several clips at once, or drop them here",
 "أو الصق رابطاً (يوتيوب، تيك توك، إكس، إنستغرام، أو رابط مباشر لملف فيديو)": "Or paste a link (YouTube, TikTok, X, Instagram, or a direct link to a video file)",
 "⬇️ استخراج": "⬇️ Extract",
@@ -3691,45 +3692,19 @@ const Extract = (() => {
   card.addEventListener("dragleave", () => card.classList.remove("over"));
   card.addEventListener("drop", (e) => { e.preventDefault(); card.classList.remove("over"); if (e.dataTransfer.files.length) fromFiles([...e.dataTransfer.files]); });
 
-  // ---------- الروابط
-  const settings = { api: $("#x-api"), key: $("#x-key") };
-  for (const [k, el] of Object.entries(settings)) {
-    try { el.value = localStorage.getItem("x_" + k) || ""; } catch {}
-    el.onchange = () => { try { localStorage.setItem("x_" + k, el.value.trim()); } catch {} };
-  }
+  // ---------- الروابط: ملفات مباشرة فقط. أُزيل التنزيل من المنصات (يوتيوب وغيره) لأنه يخالف شروطها
   const isMediaUrl = (u) => /\.(mp4|webm|mov|m4v|mkv|ogv|mp3|m4a|aac|wav|ogg|opus|flac)(\?|#|$)/i.test(u.pathname);
-  const bitrate = () => ({ tiny: "64", small: "96", good: "128", high: "320" })[$("#mp3-q").value] || "128";
-  async function viaService(url, ui) {
-    const api = settings.api.value.trim().replace(/\/+$/, "");
-    if (!api) { $("#x-set").open = true; throw new Error(T("هذا الموقع لا يسمح بالتنزيل المباشر. أضف عنوان خدمة التنزيل في الإعدادات تحت الحقل")); }
-    ui.st(T("<span class=\"spin\"></span> طلب الصوت من خدمة التنزيل…"));
-    const headers = { Accept: "application/json", "Content-Type": "application/json" }, key = settings.key.value.trim();
-    if (key) headers.Authorization = /\s/.test(key) ? key : "Api-Key " + key;
-    let j;
-    try { j = await (await fetch(api + "/", { method: "POST", headers, body: JSON.stringify({ url, downloadMode: "audio", audioFormat: "mp3", audioBitrate: bitrate() }) })).json(); }
-    catch { throw new Error(T("تعذّر الاتصال بخدمة التنزيل. تأكد من العنوان وأنها تعمل")); }
-    if (j.status === "error") throw new Error(T("رفضت الخدمة الرابط: ") + ((j.error && j.error.code) || T("خطأ غير معروف")));
-    let dl = j.url, name = j.filename;
-    if (j.status === "picker") { dl = j.audio || (j.picker && j.picker[0] && j.picker[0].url); name = j.audioFilename || name; }
-    if (!dl) throw new Error(T("لم تُرجع الخدمة رابطاً للصوت"));
-    ui.st(T("<span class=\"spin\"></span> تنزيل الصوت…"));
-    const r = await fetch(dl);
-    if (!r.ok) throw new Error(T("فشل تنزيل الصوت من الخدمة"));
-    return { blob: await r.blob(), name: name || "audio" };
-  }
   $("#x-go").onclick = async () => {
     const raw = $("#x-url").value.trim();
     let u;
     try { u = new URL(raw); if (!/^https?:$/.test(u.protocol)) throw 0; } catch { return toast(T("الصق رابطاً صحيحاً يبدأ بـ https://"), true); }
     const ui = row(u.hostname + u.pathname.slice(0, 40));
     try {
+      if (!isMediaUrl(u)) throw new Error(T("يدعم البرنامج الروابط المباشرة للملفات فقط، لا صفحات يوتيوب أو المنصات. نزّل الملف الذي تملكه ثم اختره من الزر أعلاه"));
       let got = null;
-      if (isMediaUrl(u)) {
-        ui.st(T("<span class=\"spin\"></span> تنزيل الملف…"));
-        try { const r = await fetch(u.href); if (r.ok) got = { blob: await r.blob(), name: decodeURIComponent(u.pathname.split("/").pop()) }; } catch {}
-        if (!got && !settings.api.value.trim()) throw new Error(T("الموقع صاحب الملف يمنع التنزيل من صفحات أخرى. نزّل الفيديو على جهازك ثم اختره من الزر أعلاه"));
-      }
-      got ||= await viaService(u.href, ui);
+      ui.st(T("<span class=\"spin\"></span> تنزيل الملف…"));
+      try { const r = await fetch(u.href); if (r.ok) got = { blob: await r.blob(), name: decodeURIComponent(u.pathname.split("/").pop()) }; } catch {}
+      if (!got) throw new Error(T("الموقع صاحب الملف يمنع التنزيل من صفحات أخرى. نزّل الفيديو على جهازك ثم اختره من الزر أعلاه"));
       $(".x-name", ui.r).textContent = clean(got.name);
       await finish(ui, got.blob, got.name);
       $("#x-url").value = "";
@@ -3870,7 +3845,10 @@ const VoiceLab = (() => {
   $("#vl-to-studio").onclick = () => { if (result) { Studio.add(result, $("#vl-res-title").textContent, "voice"); showTab("studio"); toast(T("أُضيف إلى الاستوديو")); } };
 
   // ---------- مكتبة الأصوات
+  // إقرار الموافقة إلزامي قبل حفظ أي صوت (حماية قانونية من انتحال الأصوات)
+  const consented = () => { if ($("#vl-consent").checked) return true; toast(T("أكّد أولاً أن الصوت لك أو أن لديك إذن صاحبه"), true); $("#vl-consent").focus(); return false; };
   async function addVoice(blob, name) {
+    if (!consented()) return;
     const st = $("#vl-status");
     st.innerHTML = T("<span class=\"spin\"></span> جارٍ تحليل البصمة الصوتية…");
     await new Promise((r) => setTimeout(r, 30));
@@ -3885,7 +3863,7 @@ const VoiceLab = (() => {
       let pk = 0; for (const v of seg) pk = Math.max(pk, Math.abs(v));
       const norm = seg.map((v) => (v / (pk || 1)) * 0.9);
       const prof = voiceProfile([norm], SAMPLE_SR);
-      const v = { id: "v" + Date.now().toString(36), name: name || T("صوت {0}", voices.length + 1), created: Date.now(), f0: prof.f0, env: prof.env, voicedPct: prof.voicedPct, sample: encodeWAV(bufFrom([norm], SAMPLE_SR)), dur: norm.length / SAMPLE_SR, transcript: "" };
+      const v = { id: "v" + Date.now().toString(36), name: name || T("صوت {0}", voices.length + 1), created: Date.now(), consentAt: Date.now(), f0: prof.f0, env: prof.env, voicedPct: prof.voicedPct, sample: encodeWAV(bufFrom([norm], SAMPLE_SR)), dur: norm.length / SAMPLE_SR, transcript: "" };
       await VStore.put(v);
       await refresh();
       st.textContent = T("حُفظت بصمة «{0}» ✓ — طبقة {1} هرتز ({2})", v.name, v.f0.toFixed(0), kindOf(v.f0));
@@ -3897,13 +3875,13 @@ const VoiceLab = (() => {
   $("#vl-file").onchange = (e) => { const f = e.target.files[0]; if (f) addVoice(f, $("#vl-name").value.trim() || f.name.replace(/\.[^.]+$/, "")); e.target.value = ""; };
   $("#vl-import").onchange = async (e) => {
     const f = e.target.files[0]; e.target.value = "";
-    if (!f) return;
+    if (!f || !consented()) return;
     try {
       const j = JSON.parse(await f.text());
       if (!j.env || !j.f0 || !j.sample) throw new Error();
       const bin = atob(j.sample), u8 = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-      await VStore.put({ ...j, id: "v" + Date.now().toString(36), created: Date.now(), sample: new Blob([u8], { type: "audio/wav" }) });
+      await VStore.put({ ...j, id: "v" + Date.now().toString(36), created: Date.now(), consentAt: Date.now(), sample: new Blob([u8], { type: "audio/wav" }) });
       await refresh(); toast(T("استُورد الصوت «{0}» ✓", j.name));
     } catch { toast(T("الملف ليس صوتاً مُصدَّراً من هذه المنصة"), true); }
   };
