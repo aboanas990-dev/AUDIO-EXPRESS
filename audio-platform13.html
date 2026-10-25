@@ -1494,6 +1494,8 @@ function T(k, ...a) {
 /* رابط ملف مؤقت واحد لكل مكان: يُحرَّر القديم قبل إنشاء الجديد حتى لا تتراكم الملفات في الذاكرة */
 const __urls = {};
 function slotURL(key, blob) { if (__urls[key]) URL.revokeObjectURL(__urls[key]); return (__urls[key] = URL.createObjectURL(blob)); }
+// تحرير روابط blob داخل عنصر قبل مسحه، كي لا تبقى الملفات الصوتية في الذاكرة
+function revokeIn(el) { el.querySelectorAll("[src^='blob:'],[href^='blob:']").forEach((n) => URL.revokeObjectURL(n.getAttribute("src") || n.getAttribute("href"))); }
 /* موافقة واحدة في كل جلسة قبل إرسال صوت المستخدم إلى خدمة سحابية خارجية */
 let __cloudOk = false;
 function cloudConsent(service) {
@@ -3233,7 +3235,7 @@ const Trim = (() => {
       download(await makeZip(files), "parts.zip");
     } catch (err) { toast(err.message, true); } finally { busy(btn, false); }
   };
-  $("#split-clear").onclick = () => { clips.length = 0; $("#split-list").innerHTML = ""; $("#split-tools").hidden = true; };
+  $("#split-clear").onclick = () => { clips.length = 0; revokeIn($("#split-list")); $("#split-list").innerHTML = ""; $("#split-tools").hidden = true; };
 
   // ------------------------------------------------ التحليل
   const AN = {
@@ -4173,7 +4175,7 @@ const Separator = (() => {
     const timer = setInterval(tick, 500); tick();
     busy(btn, true, T("جارٍ التجهيز…"));
     try {
-      stems.innerHTML = "";
+      revokeIn(stems); stems.innerHTML = "";
       if (mode() === "cloud") (await Promise.race([sepAborted(), cloudSeparate(st)])).forEach(({ b, label }) => addStem(b, label, /voc|صوت|speech/i.test(label) && !/no.?voc|instru|accomp|without|بدون|other|drum|bass/i.test(label) ? "🎤" : "🎸"));
       else {
         const r = await separateAuto(chansOfBuf(src), src.sampleRate, (p) => st(T("جارٍ الفصل على جهازك… {0}%", Math.round(p * 100))), st);
@@ -4184,7 +4186,7 @@ const Separator = (() => {
       toast(T("تم الفصل ✓"));
       meter.textContent = T("⏱ استغرق الفصل {0}", mmss(performance.now() - t0));
     } catch (err) {
-      if (err.name === "AbortError") { stems.innerHTML = ""; meter.textContent = T("⏹ أُوقف الفصل بعد {0}", mmss(performance.now() - t0)); toast(T("أُوقف الفصل")); }
+      if (err.name === "AbortError") { revokeIn(stems); stems.innerHTML = ""; meter.textContent = T("⏹ أُوقف الفصل بعد {0}", mmss(performance.now() - t0)); toast(T("أُوقف الفصل")); }
       else { meter.textContent = ""; toast(err.message, true); }
     } finally { clearInterval(timer); sepRun.signal = null; sepRun.gpu = false; stopB.hidden = true; busy(btn, false); }
   };
