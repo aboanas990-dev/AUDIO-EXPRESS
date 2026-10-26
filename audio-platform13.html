@@ -2158,7 +2158,8 @@ function cloudConsent(service) {
             max_devices: 1, apps: [S.cfg.app], features: info.app.trial_features }] : []),
           ...info.plans,
         ];
-        let selected = (info.plans.find(p => p.recommended) || info.plans[0])?.id;
+        // التجربة المجانية هي الاختيار الافتراضي متى كانت متاحة، فلا يبدو أنها تحتاج دفعًا
+        let selected = showTrial ? '__trial' : (info.plans.find(p => p.recommended) || info.plans[0])?.id;
         dlgBox.classList.add('wide');
 
         const cell = (v, cls) => el('td', cls ? { class: cls } : {}, v);
@@ -2174,7 +2175,7 @@ function cloudConsent(service) {
           ...info.app.features.map(f => el('tr', {}, el('th', {}, L(f)), cols.map(c => yes(c.features.includes(f.id))))),
         ];
         const pickRow = el('tr', {}, el('th', {}, ''), cols.map(c => el('td', {},
-          el('button', { class: c.trial ? 'pick alt' : 'pick', 'data-id': c.id, onclick: () => (c.trial ? trialStart() : choose(c.id)) },
+          el('button', { class: c.trial ? 'pick alt' : 'pick', 'data-id': c.id, onclick: () => (c.trial ? (choose(c.id), trialStart()) : choose(c.id)) },
             c.trial ? t.startTrialShort : t.choose))));
         const table = el('div', { class: 'cmp' }, el('table', {}, el('thead', {}, head), el('tbody', {}, rows, pickRow)));
 
@@ -2182,19 +2183,29 @@ function cloudConsent(service) {
         const name = el('input', { placeholder: t.name, autocomplete: 'name' });
         const email = el('input', { type: 'email', placeholder: 'name@example.com', autocomplete: 'email' });
         const btn = el('button', { class: 'go' });
+        const fields = el('div', { class: 'two' },
+          el('div', {}, el('label', {}, t.name), name), el('div', {}, el('label', {}, t.email), email));
         function choose(id) {
           selected = id;
-          const p = info.plans.find(x => x.id === id);
           table.querySelectorAll('[data-id]').forEach(x => x.classList.toggle('on', x.dataset.id === id));
           table.querySelectorAll('tr').forEach(tr => [...tr.children].forEach((td, i) => td.classList.toggle('col-on', cols[i - 1]?.id === id)));
+          if (id === '__trial') {
+            summary.textContent = `${t.selected}: ${t.trialCol}`;
+            btn.textContent = t.startTrial(info.app.trial_days);
+            fields.style.display = 'none';
+            return;
+          }
+          const p = info.plans.find(x => x.id === id);
           summary.textContent = `${t.selected}: ${L(p)}`;
           btn.textContent = t.buy(fmtPrice(p));
+          fields.style.display = '';
         }
         async function trialStart() {
           say('');
           try { await startTrial(); say(t.trialState(status().daysLeft), 'ok'); setTimeout(done, 900); } catch (e) { say(errText(e), 'err'); }
         }
         btn.onclick = async () => {
+          if (selected === '__trial') { btn.disabled = true; await trialStart(); btn.disabled = false; return; }
           btn.disabled = true; say('');
           const p = buy({ plan: selected, email: email.value.trim(), name: name.value.trim() });
           pane.replaceChildren(el('p', {}, t.waiting), el('button', { class: 'ghost', onclick: () => { stopPolling(); showBuy(); } }, t.cancelWait));
@@ -2203,8 +2214,7 @@ function cloudConsent(service) {
             showBuy().then(() => say(errText(e), 'err'));
           }
         };
-        pane.replaceChildren(table, summary, el('div', { class: 'two' },
-          el('div', {}, el('label', {}, t.name), name), el('div', {}, el('label', {}, t.email), email)), btn);
+        pane.replaceChildren(table, summary, fields, btn);
         if (selected) choose(selected);
       };
 
