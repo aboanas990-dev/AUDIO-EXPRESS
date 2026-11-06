@@ -49,3 +49,14 @@
 | `audio-platform8.html` | نسخة سابقة |
 
 © 2026 حسن الفيفي · Hassan Alfaifi — جميع الحقوق محفوظة
+
+<!-- replica-2026-11-06 -->
+## الاختصارات الجديدة
+
+- **Ctrl+K**: لوحة الأوامر، ابحث فيها عن صفحة أو زر أو صف في جدول ظاهر، ثم اضغط Enter.
+- **?**: قائمة اختصارات لوحة المفاتيح (خارج حقول الكتابة).
+
+## New shortcuts
+
+- **Ctrl+K**: command palette. Search visible pages, buttons and table rows, then press Enter.
+- **?**: keyboard shortcuts sheet (outside text fields).
